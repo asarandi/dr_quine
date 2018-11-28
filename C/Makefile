@@ -1,8 +1,9 @@
 CFLAGS = -Wall -Werror -Wextra
 COLLEEN := Colleen
 GRACE := Grace
+SULLY := Sully
 
-all: $(COLLEEN) $(GRACE)
+all: $(COLLEEN) $(GRACE) $(SULLY)
 
 $(COLLEEN): Colleen.c
 	$(CC) $(CFLAGS) -o $@ $^ 
@@ -10,10 +11,13 @@ $(COLLEEN): Colleen.c
 $(GRACE): Grace.c
 	$(CC) $(CFLAGS) -o $@ $^ 
 
+$(SULLY): Sully.c
+	$(CC) $(CFLAGS) -o $@ $^ 
+
 clean:
-	rm -rf *.o Grace_kid.c Sully_*.c
+	rm -rf *.o Grace_kid.c Sully_*
 
 fclean: clean
-	rm -rf $(COLLEEN) $(GRACE)
+	rm -rf $(COLLEEN) $(GRACE) $(SULLY)
 
 re: fclean all
