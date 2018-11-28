@@ -1,3 +1,5 @@
+#cat Colleen.s | sed 's/^/db\ "/g' | sed 's/$/",10/g'
+
 ASM = nasm
 ASMFLAGS = -f macho64
 COLLEEN := Colleen

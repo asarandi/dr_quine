@@ -28,16 +28,16 @@ _self_db_scan:
 
 _self_end_of_line:
     mov byte [r14], 0
-    lea rsi, [rel fmt1]
-    mov rdi, r13
+    mov rsi, r13
+    lea rdi, [rel fmt1]
     call _printf
     inc r14
     jmp _self_loop
 
 _self_end_of_data:
     mov byte [r14], 0
-    lea rsi, [rel fmt2]
-    mov rdi, r13
+    mov rsi, r13
+    lea rdi, [rel fmt2]
     call _printf
 
     pop rbp
@@ -59,8 +59,8 @@ _main:
     ret
 
 section .data
-fmt1 db 'db "%s",10',10,0
-fmt2 db 'db "%s",10,0',10,0
+fmt1 db 0x64, 0x62, 0x20, 0x22, 0x25, 0x73, 0x22, 0x2c, 0x31, 0x30, 0x0a, 0x00
+fmt2 db 0x64, 0x62, 0x20, 0x22, 0x25, 0x73, 0x22, 0x2c, 0x31, 0x30, 0x2c, 0x30, 0x0a, 0x00
 self:
 db "extern _printf",10
 db "extern _exit",10
@@ -92,16 +92,16 @@ db "    jmp _self_db_scan",10
 db "",10
 db "_self_end_of_line:",10
 db "    mov byte [r14], 0",10
-db "    lea rsi, [rel fmt1]",10
-db "    mov rdi, r13",10
+db "    mov rsi, r13",10
+db "    lea rdi, [rel fmt1]",10
 db "    call _printf",10
 db "    inc r14",10
 db "    jmp _self_loop",10
 db "",10
 db "_self_end_of_data:",10
 db "    mov byte [r14], 0",10
-db "    lea rsi, [rel fmt2]",10
-db "    mov rdi, r13",10
+db "    mov rsi, r13",10
+db "    lea rdi, [rel fmt2]",10
 db "    call _printf",10
 db "",10
 db "    pop rbp",10
@@ -123,6 +123,6 @@ db "    pop rbp",10
 db "    ret",10
 db "",10
 db "section .data",10
-db "fmt1 db 'db "%s",10',10,0",10
-db "fmt2 db 'db "%s",10,0',10,0",10
+db "fmt1 db 0x64, 0x62, 0x20, 0x22, 0x25, 0x73, 0x22, 0x2c, 0x31, 0x30, 0x0a, 0x00",10
+db "fmt2 db 0x64, 0x62, 0x20, 0x22, 0x25, 0x73, 0x22, 0x2c, 0x31, 0x30, 0x2c, 0x30, 0x0a, 0x00",10
 db "self:",10,0
