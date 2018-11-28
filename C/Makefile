@@ -18,7 +18,7 @@ $(SULLY): Sully.c
 	$(CC) $(CFLAGS) -o $@ $^ 
 
 clean:
-	rm -rf *.o Grace_kid.c Sully_*
+	rm -rf *.o a.out* Grace_kid.c Sully_*
 
 fclean: clean
 	rm -rf $(COLLEEN) $(GRACE) $(SULLY)
