@@ -1,3 +1,6 @@
+#cat Sully.c | tr '\n' '@' | tr '\t' '~' | tr '"' '?' | sed 's/%/%%/g' | sed 's/[@~?]/%c/g'
+#cat Sully.c | tr '\n' '@' | tr '\t' '~' | tr '"' '?' | sed 's/[^5@~?]//g' | sed 's/@/10,/g' | sed 's/~/9,/g' | sed 's/?/34,/g'
+
 CFLAGS = -Wall -Werror -Wextra
 COLLEEN := Colleen
 GRACE := Grace
