@@ -1,7 +1,7 @@
-#cat Colleen.s | sed 's/^/db\ "/g' | sed 's/$/",10/g'
+#cat Sully.s | sed 's/^/db\ "/g' | sed 's/$/",10/g' >> Sully.s 
 
 ASM = nasm
-ASMFLAGS = -f macho64
+ASMFLAGS = -g -f macho64
 COLLEEN := Colleen
 GRACE := Grace
 SULLY := Sully
@@ -18,7 +18,7 @@ $(GRACE): Grace.s
 
 $(SULLY): Sully.s
 	$(ASM) $(ASMFLAGS) $^ 
-	$(CC) -o $@ Sully.o
+	$(CC) -g -o $@ Sully.o
 
 
 
