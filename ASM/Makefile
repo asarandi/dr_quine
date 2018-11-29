@@ -23,7 +23,7 @@ $(SULLY): Sully.s
 
 
 clean:
-	rm -rf *.o Grace_kid.s Sully_*.s
+	rm -rf *.o Grace_kid.s Sully_* Sully.o
 
 fclean: clean
 	rm -rf $(COLLEEN) $(GRACE) $(SULLY)
