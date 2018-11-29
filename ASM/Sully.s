@@ -198,9 +198,9 @@ _end:
     ret
 
 section .data
-idx0    dd    5
+idx0    dd    5                
 padding0    times 64 db 0
-idx_fmt     db 'idx0    dd    ',37,'d',0
+idx_fmt     db 'idx0    dd    ',37,'d                ',0
 idx_str     times 128 db 0
 src_fmt     db 'Sully_',37,'d.s',0
 src_file    times 128 db 0
@@ -419,9 +419,9 @@ db "    pop rbp",10
 db "    ret",10
 db "",10
 db "section .data",10
-db "idx0    dd    5",10
+db "idx0    dd    5                ",10
 db "padding0    times 64 db 0",10
-db "idx_fmt     db 'idx0    dd    ',37,'d',0",10
+db "idx_fmt     db 'idx0    dd    ',37,'d                ',0",10
 db "idx_str     times 128 db 0",10
 db "src_fmt     db 'Sully_',37,'d.s',0",10
 db "src_file    times 128 db 0",10
