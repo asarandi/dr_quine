@@ -94,6 +94,7 @@ _prepare_strings:
     lea rdi, [rel idx_str]
     call _sprintf
 
+    dec rax
     mov r13, rax
     mov r14, 0xc00
 
@@ -107,6 +108,17 @@ _find_self_ref:
     cmp rax, 0
     jnz _find_self_ref
 
+    lea rdi, [rel self]
+    add rdi, r14
+_clear_loop:    
+    mov al, byte [rdi]
+    cmp al, 10
+    jz _clear_stop
+    mov byte [rdi], 32
+    inc rdi
+    jmp _clear_loop
+
+_clear_stop:
     mov rdx, r13
     lea rsi, [rel idx_str]
     lea rdi, [rel self]
@@ -198,9 +210,9 @@ _end:
     ret
 
 section .data
-idx0    dd    5                
+idx0    dd    100                                                       
 padding0    times 64 db 0
-idx_fmt     db 'idx0    dd    ',37,'d                ',0
+idx_fmt     db 'idx0    dd    ',37,'d                        ',0
 idx_str     times 128 db 0
 src_fmt     db 'Sully_',37,'d.s',0
 src_file    times 128 db 0
@@ -315,6 +327,7 @@ db "    lea rsi, [rel idx_fmt]",10
 db "    lea rdi, [rel idx_str]",10
 db "    call _sprintf",10
 db "",10
+db "    dec rax",10
 db "    mov r13, rax",10
 db "    mov r14, 0xc00",10
 db "",10
@@ -328,6 +341,17 @@ db "    call _strncmp",10
 db "    cmp rax, 0",10
 db "    jnz _find_self_ref",10
 db "",10
+db "    lea rdi, [rel self]",10
+db "    add rdi, r14",10
+db "_clear_loop:    ",10
+db "    mov al, byte [rdi]",10
+db "    cmp al, 10",10
+db "    jz _clear_stop",10
+db "    mov byte [rdi], 32",10
+db "    inc rdi",10
+db "    jmp _clear_loop",10
+db "",10
+db "_clear_stop:",10
 db "    mov rdx, r13",10
 db "    lea rsi, [rel idx_str]",10
 db "    lea rdi, [rel self]",10
@@ -419,9 +443,9 @@ db "    pop rbp",10
 db "    ret",10
 db "",10
 db "section .data",10
-db "idx0    dd    5                ",10
+db "idx0    dd    100                                                       ",10
 db "padding0    times 64 db 0",10
-db "idx_fmt     db 'idx0    dd    ',37,'d                ',0",10
+db "idx_fmt     db 'idx0    dd    ',37,'d                        ',0",10
 db "idx_str     times 128 db 0",10
 db "src_fmt     db 'Sully_',37,'d.s',0",10
 db "src_file    times 128 db 0",10
