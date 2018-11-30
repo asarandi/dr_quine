@@ -10,11 +10,11 @@ all: $(COLLEEN) $(GRACE) $(SULLY)
 
 $(COLLEEN): Colleen.s
 	$(ASM) $(ASMFLAGS) $^ 
-	$(CC) -o $@ Colleen.o
+	$(CC) -g -o $@ Colleen.o
 
 $(GRACE): Grace.s
 	$(ASM) $(ASMFLAGS) $^ 
-	$(CC) -o $@ Grace.o
+	$(CC) -g -o $@ Grace.o
 
 $(SULLY): Sully.s
 	$(ASM) $(ASMFLAGS) $^ 

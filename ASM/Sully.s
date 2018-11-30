@@ -1,14 +1,33 @@
-extern _open
+;
+; dr_quine [sully], 42 fremont, nov 2018
+;
+; main logic:
+;
+; check source file name, __FILE__
+; if fn does not have underscores,
+;   that means we are original sully, do not decrement the index,
+;   because as per pdf, sully must produce twelve files 5,4,3,2,1,0 src and binaries
+;
+; if fn does have underscores, decrement index by one
+;   if index is equal to zero or less, do nothing; quit, as per pdf and scale
+;   next steps are to create a new string with index and new value,
+;   create matching file names, write source to file, build and run binary
+;
+; again, as per correction sheet, if starting index is 5,
+;  all together sully should create 12 files
+;  they did not account for .o files in the scale,
+;  so im including a rm command as well
+;
+
+extern _open                        ; open, close, write to files
 extern _close
 extern _dprintf
-extern _exit
-extern _strrchr
-extern _strchr
-extern _sprintf
-extern _system
-extern _strncmp
-extern _asprintf
-extern _free
+extern _strchr                      ; search for underscore in fn
+extern _sprintf                     ; print to buffer
+extern _system                      ; execute shell command
+extern _strstr                      ; to find old index string in data section
+extern _asprintf                    ; to concat strings, allocates mem
+extern _free                        ; free allocated mem
 
 global _main
 
@@ -19,234 +38,221 @@ section .text
 
 _self_db:
     push    rbp
-    mov rbp, rsp
+    mov     rbp, rsp
+    push    r13
+    push    r14
 
-    mov r14,[rel new_self]  ; data
+    mov     r14, [rel new_self]
+.loop:
+    mov     r13, r14
+.scan:
+    mov     ax, word [r14]
+    cmp     ax, 0x000a              ; is end of data?
+    jz      .eof
+    mov     al, byte [r14]
+    cmp     al, 10                  ; is newline?
+    jz      .eol
+    inc     r14
+    jmp     .scan
 
-_self_loop:
-    mov r13, r14        ; save before increment
-_self_db_scan:
-    mov ax, word [r14]
-    cmp ax, 0x000a
-    jz _self_end_of_data
-    mov al, byte [r14]
-    cmp al, 10
-    jz _self_end_of_line
-    inc r14
-    jmp _self_db_scan
+.eol:
+    mov     byte [r14], 0
+    mov     rdx, r13
+    lea     rsi, [rel fmt1]
+    mov     rdi, [rel fd]
+    call    _dprintf
+    inc     r14
+    jmp     .loop
 
-_self_end_of_line:
-    mov byte [r14], 0
-    mov rdx, r13
-    lea rsi, [rel fmt1]
-    mov rdi, [rel fd]
-    call _dprintf
-    inc r14
-    jmp _self_loop
+.eof:
+    mov     byte [r14], 0           ; print line prefixed with: db q
+    mov     rdx, r13                ; and suffixed with: q, 10
+    lea     rsi, [rel fmt2]
+    mov     rdi, [rel fd]
+    call    _dprintf
 
-_self_end_of_data:
-    mov byte [r14], 0
-    mov rdx, r13
-    lea rsi, [rel fmt2]
-    mov rdi, [rel fd]
-    call _dprintf
-
-    pop rbp
-    ret
-
-;----------------------------------------------------------
-_is_original_sully:
-    push rbp
-    mov rbp, rsp
-    mov r13, rax
-    mov rdi, rax
-    mov rsi, '/'
-    call _strrchr
-    test rax, rax
-    jz _is_original_slash
-    inc rax
-    mov r13, rax
-_is_original_slash:
-    mov rdi, r13
-    mov rsi, '_'
-    call _strchr
-    test rax, rax
-    jz _is_original_true
-    xor rax, rax
-    jmp _is_original_return
-_is_original_true:
-    mov rax, 1
-_is_original_return:
-    pop rbp
+    pop     r14
+    pop     r13
+    pop     rbp
     ret
 
 ;----------------------------------------------------------
 _prepare_strings:
-    push rbp
-    mov rbp, rsp
+    push    rbp
+    mov     rbp, rsp
 
-    mov edx, [rel idx0]
-    movsx rdx, edx
-    lea rsi, [rel idx_fmt]
-    lea rdi, [rel idx_str]
-    call _sprintf
+    mov     edx, [rel idx0]
+    movsx   rdx, edx
+    lea     rsi, [rel idx_fmt]      ; print new idx0 string to buffer
+    lea     rdi, [rel idx_str]
+    call    _sprintf
 
-    mov r14, 0xc00
+    lea     rsi, [rel idx_search]   ;  .. and that is why it has to be first in data section
+    lea     rdi, [rel self]         ;
+    call    _strstr                 ; find existing idx0 string
+    mov     byte [rax], 0           ; place a 0 to cut the string
+    lea     rdi, [rax + 1]          ; - we only want everything before
+    mov     rsi, 10
+    call    _strchr                 ; find the newline after idx0 string,
+                                    ; - we want everything after
 
-_find_self_ref:
-    inc r14
-    mov rdx, 13
-    lea rsi, [rel self]
-    add rsi, r14
-    lea rdi, [rel idx_str]
-    call _strncmp
-    cmp rax, 0
-    jnz _find_self_ref
+    mov     r8, rax                 ; tail
+    lea     rcx, [rel idx_str]      ; body
+    lea     rdx, [rel self]         ; head
+    lea     rsi, [rel triples]      ; s s s format
+    lea     rdi, [rel new_self]     ; pointer to result
+    call    _asprintf
 
-    lea r8, [rel self]
-    add r8, r14
-    mov byte [r8], 0
+    mov     edx, [rel idx0]
+    movsx   rdx, edx
+    lea     rsi, [rel src_fmt]      ; source file name
+    lea     rdi, [rel src_file]
+    call    _sprintf
 
-_find_second_part:
-    inc r8
-    mov al, byte [r8]
-    cmp al, 10
-    jnz _find_second_part
+    mov     edx, [rel idx0]
+    movsx   rdx, edx
+    lea     rsi, [rel obj_fmt]      ; object file name
+    lea     rdi, [rel obj_file]
+    call    _sprintf
 
-    ;r8 is set
-    lea rcx, [rel idx_str]
-    lea rdx, [rel self]
-    lea rsi, [rel triples]
-    lea rdi, [rel new_self]
-    call _asprintf
+    mov     edx, [rel idx0]
+    movsx   rdx, edx
+    lea     rsi, [rel bin_fmt]      ;binary file name
+    lea     rdi, [rel bin_file]
+    call    _sprintf
+                                    ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully_X.o && ./Sully_X
+    lea     r8,  [rel obj_file]     ;arg3
+    mov     r9, r8                  ;arg4
+    lea     rcx, [rel bin_file]     ;arg2
+    sub     rsp, 8
+    push    rcx                     ;arg5
+    lea     rdx, [rel src_file]     ;arg1
+    lea     rsi, [rel exec_fmt]
+    lea     rdi, [rel exec_cmd]
+    call    _sprintf                ;this will be the execution string
+    add     rsp, 16
 
-    mov edx, [rel idx0]
-    movsx rdx, edx
-    lea rsi, [rel src_fmt]
-    lea rdi, [rel src_file]
-    call _sprintf
-
-    mov edx, [rel idx0]
-    movsx rdx, edx
-    lea rsi, [rel obj_fmt]
-    lea rdi, [rel obj_file]
-    call _sprintf
-
-    mov edx, [rel idx0]
-    movsx rdx, edx
-    lea rsi, [rel bin_fmt]
-    lea rdi, [rel bin_file]
-    call _sprintf
-
-    lea r8,  [rel obj_file]
-    lea rcx, [rel bin_file]
-    lea rdx, [rel src_file]
-    lea rsi, [rel compile_fmt]
-    lea rdi, [rel compile_cmd]
-    call _sprintf
-
-    lea rdx, [rel bin_file]
-    lea rsi, [rel run_fmt]
-    lea rdi, [rel run_cmd]
-    call _sprintf
-
-    mov rax, [rel new_self]
-    pop rbp
+    mov     rax, [rel new_self]
+    pop     rbp
     ret
 
 ;----------------------------------------------------------
 _main:
     push    rbp
-    mov rbp, rsp
+    mov     rbp, rsp
 
-    mov rax, qword [rsi]        ;argv[0]
-    call _is_original_sully
-    test rax, rax
-    jnz _sully_no_decrement
+    xor     rax, rax                ; set new_rel to zero
+    mov     [rel new_self], rax     ; in case something fails we have to go to .end
 
-    mov eax, [rel idx0]
-    dec eax
-    mov [rel idx0], eax
+    mov     eax, [rel idx0]         ; as per correction scale
+    cmp     eax, 0                  ; program should not do anything when index is at 0
+    jle     .end                    ; i wish the project pdf mentioned it
 
-_sully_no_decrement:
-    call _prepare_strings
-    test rax, rax
-    jz _end
+    mov     rsi, '_'                ; my way of detecting if current program is original Sully
+    lea     rdi, [rel self_fn]      ; __file__ should be the name of .s file used for compilation
+    call    _strchr                 ; if file has no underscore, then its original Sully.s
+    test    eax, eax                ; dont decrement index if original
+    jz      .no_decrement           ; yeah .. and use of argv[0] is forbidden
 
-    mov rdx, open_mode
-    mov rsi, open_flags
-    lea rdi, [rel src_file]
-    call _open
-    cmp eax, 0
-    jle _end
-    mov [rel fd], eax
+    mov     eax, [rel idx0]         ; decrement index
+    dec     eax
+    mov     [rel idx0], eax
 
-    mov rdi, rax
-    mov rsi, [rel new_self]
-    call _dprintf
+.no_decrement:
+    call    _prepare_strings        ; the printfs and such
+    test    rax, rax
+    jz      .end
 
-    call _self_db
+    mov     rdx, open_mode
+    mov     rsi, open_flags
+    lea     rdi, [rel src_file]
+    call    _open                   ; open destination file
+    cmp     eax, 0
+    jle     .end
+    mov     [rel fd], eax           ; save file descriptor
 
-    mov rdi, [rel new_self]
-    test rdi, rdi
-    jz _skip_free
-    call _free
+    mov     rdi, rax
+    mov     rsi, [rel new_self]
+    call    _dprintf                ; put text copy #1 into file
 
-_skip_free:    
-    mov rdi, [rel fd]
-    call _close
+    call    _self_db                ; put text copy #2, prefixed with db and quotes into file
 
-    lea rdi, [rel compile_cmd]
-    call _system
+    mov     rdi, [rel fd]           ; close fd
+    call    _close
 
-    mov eax, [rel idx0]
-    cmp eax, 0
-    jle _end
+    lea     rdi, [rel exec_cmd]     ; run nasm, cc, remove obj and run executable
+    call    _system                 ; its silly to remove the .o, but ..
+                                    ; correction sheet explicitly says there must be 13 files :(
+.end:
+    mov     rdi, [rel new_self]     ; free memory, if any
+    test    rdi, rdi
+    jz      .no_free
 
-    lea rdi, [rel run_cmd]
-    call _system
+    call    _free
 
-_end:
-    mov rdi, 0
-    call _exit
-
-    pop rbp
+.no_free:
+    mov     rax, 0                  ; exit code zero
+    pop     rbp
     ret
 
 section .data
-idx0    dd    5
-idx_fmt     db 'idx0    dd    ',37,'d',0
-idx_str     times 128 db 0
-src_fmt     db 'Sully_',37,'d.s',0
-src_file    times 128 db 0
-obj_fmt     db 'Sully_',37,'d.o',0
-obj_file    times 128 db 0
-bin_fmt     db 'Sully_',37,'d',0
-bin_file    times 128 db 0
-compile_fmt db 'nasm -f macho64 ',37,'s && cc -Wall -Werror -Wextra -o ',37,'s ',37,'s',0
-compile_cmd times 256 db 0
-run_fmt     db './',37,'s',0
-run_cmd     times 128 db 0
-triples     db 37,'s',37,'s',37,'s',0
-new_self    dq 0
-original    dq 0
-fd          dd 0
-open_mode   equ 644o
-open_flags  equ 0x601
-fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0
-fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0
+    idx0        dd   5
+    fd          dd 0
+    new_self    dq 0
+
+    idx_fmt     db '    idx0        dd   ',37,'d',0,0
+    idx_search  db '    idx0        dd   ',0
+    self_fn     db __FILE__,0,0
+    src_fmt     db 'Sully_',37,'d.s',0,0
+    obj_fmt     db 'Sully_',37,'d.o',0,0
+    bin_fmt     db 'Sully_',37,'d',0,0
+    triples     db 37,'s',37,'s',37,'s',0,0
+    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0,0
+    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0,0
+    exec_fmt    db 'nasm -g -f macho64 ',37,'s'
+                db ' && cc -g -o ',37,'s ',37,'s'
+                db ' && rm ',37,'s'
+                db ' && ./',37,'s',0
+
+    idx_str     times 64 db 0
+    src_file    times 64 db 0
+    obj_file    times 64 db 0
+    bin_file    times 64 db 0
+    exec_cmd    times 256 db 0
+
+    open_mode   equ 644o
+    open_flags  equ 0x601
 self:
-db "extern _open",10
+db ";",10
+db "; dr_quine [sully], 42 fremont, nov 2018",10
+db ";",10
+db "; main logic:",10
+db ";",10
+db "; check source file name, __FILE__",10
+db "; if fn does not have underscores,",10
+db ";   that means we are original sully, do not decrement the index,",10
+db ";   because as per pdf, sully must produce twelve files 5,4,3,2,1,0 src and binaries",10
+db ";",10
+db "; if fn does have underscores, decrement index by one",10
+db ";   if index is equal to zero or less, do nothing; quit, as per pdf and scale",10
+db ";   next steps are to create a new string with index and new value,",10
+db ";   create matching file names, write source to file, build and run binary",10
+db ";",10
+db "; again, as per correction sheet, if starting index is 5,",10
+db ";  all together sully should create 12 files",10
+db ";  they did not account for .o files in the scale,",10
+db ";  so im including a rm command as well",10
+db ";",10
+db "",10
+db "extern _open                        ; open, close, write to files",10
 db "extern _close",10
 db "extern _dprintf",10
-db "extern _exit",10
-db "extern _strrchr",10
-db "extern _strchr",10
-db "extern _sprintf",10
-db "extern _system",10
-db "extern _strncmp",10
-db "extern _asprintf",10
-db "extern _free",10
+db "extern _strchr                      ; search for underscore in fn",10
+db "extern _sprintf                     ; print to buffer",10
+db "extern _system                      ; execute shell command",10
+db "extern _strstr                      ; to find old index string in data section",10
+db "extern _asprintf                    ; to concat strings, allocates mem",10
+db "extern _free                        ; free allocated mem",10
 db "",10
 db "global _main",10
 db "",10
@@ -257,220 +263,188 @@ db "section .text",10
 db "",10
 db "_self_db:",10
 db "    push    rbp",10
-db "    mov rbp, rsp",10
+db "    mov     rbp, rsp",10
+db "    push    r13",10
+db "    push    r14",10
 db "",10
-db "    mov r14,[rel new_self]  ; data",10
+db "    mov     r14, [rel new_self]",10
+db ".loop:",10
+db "    mov     r13, r14",10
+db ".scan:",10
+db "    mov     ax, word [r14]",10
+db "    cmp     ax, 0x000a              ; is end of data?",10
+db "    jz      .eof",10
+db "    mov     al, byte [r14]",10
+db "    cmp     al, 10                  ; is newline?",10
+db "    jz      .eol",10
+db "    inc     r14",10
+db "    jmp     .scan",10
 db "",10
-db "_self_loop:",10
-db "    mov r13, r14        ; save before increment",10
-db "_self_db_scan:",10
-db "    mov ax, word [r14]",10
-db "    cmp ax, 0x000a",10
-db "    jz _self_end_of_data",10
-db "    mov al, byte [r14]",10
-db "    cmp al, 10",10
-db "    jz _self_end_of_line",10
-db "    inc r14",10
-db "    jmp _self_db_scan",10
+db ".eol:",10
+db "    mov     byte [r14], 0",10
+db "    mov     rdx, r13",10
+db "    lea     rsi, [rel fmt1]",10
+db "    mov     rdi, [rel fd]",10
+db "    call    _dprintf",10
+db "    inc     r14",10
+db "    jmp     .loop",10
 db "",10
-db "_self_end_of_line:",10
-db "    mov byte [r14], 0",10
-db "    mov rdx, r13",10
-db "    lea rsi, [rel fmt1]",10
-db "    mov rdi, [rel fd]",10
-db "    call _dprintf",10
-db "    inc r14",10
-db "    jmp _self_loop",10
+db ".eof:",10
+db "    mov     byte [r14], 0           ; print line prefixed with: db q",10
+db "    mov     rdx, r13                ; and suffixed with: q, 10",10
+db "    lea     rsi, [rel fmt2]",10
+db "    mov     rdi, [rel fd]",10
+db "    call    _dprintf",10
 db "",10
-db "_self_end_of_data:",10
-db "    mov byte [r14], 0",10
-db "    mov rdx, r13",10
-db "    lea rsi, [rel fmt2]",10
-db "    mov rdi, [rel fd]",10
-db "    call _dprintf",10
-db "",10
-db "    pop rbp",10
-db "    ret",10
-db "",10
-db ";----------------------------------------------------------",10
-db "_is_original_sully:",10
-db "    push rbp",10
-db "    mov rbp, rsp",10
-db "    mov r13, rax",10
-db "    mov rdi, rax",10
-db "    mov rsi, '/'",10
-db "    call _strrchr",10
-db "    test rax, rax",10
-db "    jz _is_original_slash",10
-db "    inc rax",10
-db "    mov r13, rax",10
-db "_is_original_slash:",10
-db "    mov rdi, r13",10
-db "    mov rsi, '_'",10
-db "    call _strchr",10
-db "    test rax, rax",10
-db "    jz _is_original_true",10
-db "    xor rax, rax",10
-db "    jmp _is_original_return",10
-db "_is_original_true:",10
-db "    mov rax, 1",10
-db "_is_original_return:",10
-db "    pop rbp",10
+db "    pop     r14",10
+db "    pop     r13",10
+db "    pop     rbp",10
 db "    ret",10
 db "",10
 db ";----------------------------------------------------------",10
 db "_prepare_strings:",10
-db "    push rbp",10
-db "    mov rbp, rsp",10
+db "    push    rbp",10
+db "    mov     rbp, rsp",10
 db "",10
-db "    mov edx, [rel idx0]",10
-db "    movsx rdx, edx",10
-db "    lea rsi, [rel idx_fmt]",10
-db "    lea rdi, [rel idx_str]",10
-db "    call _sprintf",10
+db "    mov     edx, [rel idx0]",10
+db "    movsx   rdx, edx",10
+db "    lea     rsi, [rel idx_fmt]      ; print new idx0 string to buffer",10
+db "    lea     rdi, [rel idx_str]",10
+db "    call    _sprintf",10
 db "",10
-db "    mov r14, 0xc00",10
+db "    lea     rsi, [rel idx_search]   ;  .. and that is why it has to be first in data section",10
+db "    lea     rdi, [rel self]         ;",10
+db "    call    _strstr                 ; find existing idx0 string",10
+db "    mov     byte [rax], 0           ; place a 0 to cut the string",10
+db "    lea     rdi, [rax + 1]          ; - we only want everything before",10
+db "    mov     rsi, 10",10
+db "    call    _strchr                 ; find the newline after idx0 string,",10
+db "                                    ; - we want everything after",10
 db "",10
-db "_find_self_ref:",10
-db "    inc r14",10
-db "    mov rdx, 13",10
-db "    lea rsi, [rel self]",10
-db "    add rsi, r14",10
-db "    lea rdi, [rel idx_str]",10
-db "    call _strncmp",10
-db "    cmp rax, 0",10
-db "    jnz _find_self_ref",10
+db "    mov     r8, rax                 ; tail",10
+db "    lea     rcx, [rel idx_str]      ; body",10
+db "    lea     rdx, [rel self]         ; head",10
+db "    lea     rsi, [rel triples]      ; s s s format",10
+db "    lea     rdi, [rel new_self]     ; pointer to result",10
+db "    call    _asprintf",10
 db "",10
-db "    lea r8, [rel self]",10
-db "    add r8, r14",10
-db "    mov byte [r8], 0",10
+db "    mov     edx, [rel idx0]",10
+db "    movsx   rdx, edx",10
+db "    lea     rsi, [rel src_fmt]      ; source file name",10
+db "    lea     rdi, [rel src_file]",10
+db "    call    _sprintf",10
 db "",10
-db "_find_second_part:",10
-db "    inc r8",10
-db "    mov al, byte [r8]",10
-db "    cmp al, 10",10
-db "    jnz _find_second_part",10
+db "    mov     edx, [rel idx0]",10
+db "    movsx   rdx, edx",10
+db "    lea     rsi, [rel obj_fmt]      ; object file name",10
+db "    lea     rdi, [rel obj_file]",10
+db "    call    _sprintf",10
 db "",10
-db "    ;r8 is set",10
-db "    lea rcx, [rel idx_str]",10
-db "    lea rdx, [rel self]",10
-db "    lea rsi, [rel triples]",10
-db "    lea rdi, [rel new_self]",10
-db "    call _asprintf",10
+db "    mov     edx, [rel idx0]",10
+db "    movsx   rdx, edx",10
+db "    lea     rsi, [rel bin_fmt]      ;binary file name",10
+db "    lea     rdi, [rel bin_file]",10
+db "    call    _sprintf",10
+db "                                    ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully_X.o && ./Sully_X",10
+db "    lea     r8,  [rel obj_file]     ;arg3",10
+db "    mov     r9, r8                  ;arg4",10
+db "    lea     rcx, [rel bin_file]     ;arg2",10
+db "    sub     rsp, 8",10
+db "    push    rcx                     ;arg5",10
+db "    lea     rdx, [rel src_file]     ;arg1",10
+db "    lea     rsi, [rel exec_fmt]",10
+db "    lea     rdi, [rel exec_cmd]",10
+db "    call    _sprintf                ;this will be the execution string",10
+db "    add     rsp, 16",10
 db "",10
-db "    mov edx, [rel idx0]",10
-db "    movsx rdx, edx",10
-db "    lea rsi, [rel src_fmt]",10
-db "    lea rdi, [rel src_file]",10
-db "    call _sprintf",10
-db "",10
-db "    mov edx, [rel idx0]",10
-db "    movsx rdx, edx",10
-db "    lea rsi, [rel obj_fmt]",10
-db "    lea rdi, [rel obj_file]",10
-db "    call _sprintf",10
-db "",10
-db "    mov edx, [rel idx0]",10
-db "    movsx rdx, edx",10
-db "    lea rsi, [rel bin_fmt]",10
-db "    lea rdi, [rel bin_file]",10
-db "    call _sprintf",10
-db "",10
-db "    lea r8,  [rel obj_file]",10
-db "    lea rcx, [rel bin_file]",10
-db "    lea rdx, [rel src_file]",10
-db "    lea rsi, [rel compile_fmt]",10
-db "    lea rdi, [rel compile_cmd]",10
-db "    call _sprintf",10
-db "",10
-db "    lea rdx, [rel bin_file]",10
-db "    lea rsi, [rel run_fmt]",10
-db "    lea rdi, [rel run_cmd]",10
-db "    call _sprintf",10
-db "",10
-db "    mov rax, [rel new_self]",10
-db "    pop rbp",10
+db "    mov     rax, [rel new_self]",10
+db "    pop     rbp",10
 db "    ret",10
 db "",10
 db ";----------------------------------------------------------",10
 db "_main:",10
 db "    push    rbp",10
-db "    mov rbp, rsp",10
+db "    mov     rbp, rsp",10
 db "",10
-db "    mov rax, qword [rsi]        ;argv[0]",10
-db "    call _is_original_sully",10
-db "    test rax, rax",10
-db "    jnz _sully_no_decrement",10
+db "    xor     rax, rax                ; set new_rel to zero",10
+db "    mov     [rel new_self], rax     ; in case something fails we have to go to .end",10
 db "",10
-db "    mov eax, [rel idx0]",10
-db "    dec eax",10
-db "    mov [rel idx0], eax",10
+db "    mov     eax, [rel idx0]         ; as per correction scale",10
+db "    cmp     eax, 0                  ; program should not do anything when index is at 0",10
+db "    jle     .end                    ; i wish the project pdf mentioned it",10
 db "",10
-db "_sully_no_decrement:",10
-db "    call _prepare_strings",10
-db "    test rax, rax",10
-db "    jz _end",10
+db "    mov     rsi, '_'                ; my way of detecting if current program is original Sully",10
+db "    lea     rdi, [rel self_fn]      ; __file__ should be the name of .s file used for compilation",10
+db "    call    _strchr                 ; if file has no underscore, then its original Sully.s",10
+db "    test    eax, eax                ; dont decrement index if original",10
+db "    jz      .no_decrement           ; yeah .. and use of argv[0] is forbidden",10
 db "",10
-db "    mov rdx, open_mode",10
-db "    mov rsi, open_flags",10
-db "    lea rdi, [rel src_file]",10
-db "    call _open",10
-db "    cmp eax, 0",10
-db "    jle _end",10
-db "    mov [rel fd], eax",10
+db "    mov     eax, [rel idx0]         ; decrement index",10
+db "    dec     eax",10
+db "    mov     [rel idx0], eax",10
 db "",10
-db "    mov rdi, rax",10
-db "    mov rsi, [rel new_self]",10
-db "    call _dprintf",10
+db ".no_decrement:",10
+db "    call    _prepare_strings        ; the printfs and such",10
+db "    test    rax, rax",10
+db "    jz      .end",10
 db "",10
-db "    call _self_db",10
+db "    mov     rdx, open_mode",10
+db "    mov     rsi, open_flags",10
+db "    lea     rdi, [rel src_file]",10
+db "    call    _open                   ; open destination file",10
+db "    cmp     eax, 0",10
+db "    jle     .end",10
+db "    mov     [rel fd], eax           ; save file descriptor",10
 db "",10
-db "    mov rdi, [rel new_self]",10
-db "    test rdi, rdi",10
-db "    jz _skip_free",10
-db "    call _free",10
+db "    mov     rdi, rax",10
+db "    mov     rsi, [rel new_self]",10
+db "    call    _dprintf                ; put text copy #1 into file",10
 db "",10
-db "_skip_free:    ",10
-db "    mov rdi, [rel fd]",10
-db "    call _close",10
+db "    call    _self_db                ; put text copy #2, prefixed with db and quotes into file",10
 db "",10
-db "    lea rdi, [rel compile_cmd]",10
-db "    call _system",10
+db "    mov     rdi, [rel fd]           ; close fd",10
+db "    call    _close",10
 db "",10
-db "    mov eax, [rel idx0]",10
-db "    cmp eax, 0",10
-db "    jle _end",10
+db "    lea     rdi, [rel exec_cmd]     ; run nasm, cc, remove obj and run executable",10
+db "    call    _system                 ; its silly to remove the .o, but ..",10
+db "                                    ; correction sheet explicitly says there must be 13 files :(",10
+db ".end:",10
+db "    mov     rdi, [rel new_self]     ; free memory, if any",10
+db "    test    rdi, rdi",10
+db "    jz      .no_free",10
 db "",10
-db "    lea rdi, [rel run_cmd]",10
-db "    call _system",10
+db "    call    _free",10
 db "",10
-db "_end:",10
-db "    mov rdi, 0",10
-db "    call _exit",10
-db "",10
-db "    pop rbp",10
+db ".no_free:",10
+db "    mov     rax, 0                  ; exit code zero",10
+db "    pop     rbp",10
 db "    ret",10
 db "",10
 db "section .data",10
-db "idx0    dd    5",10
-db "idx_fmt     db 'idx0    dd    ',37,'d',0",10
-db "idx_str     times 128 db 0",10
-db "src_fmt     db 'Sully_',37,'d.s',0",10
-db "src_file    times 128 db 0",10
-db "obj_fmt     db 'Sully_',37,'d.o',0",10
-db "obj_file    times 128 db 0",10
-db "bin_fmt     db 'Sully_',37,'d',0",10
-db "bin_file    times 128 db 0",10
-db "compile_fmt db 'nasm -f macho64 ',37,'s && cc -Wall -Werror -Wextra -o ',37,'s ',37,'s',0",10
-db "compile_cmd times 256 db 0",10
-db "run_fmt     db './',37,'s',0",10
-db "run_cmd     times 128 db 0",10
-db "triples     db 37,'s',37,'s',37,'s',0",10
-db "new_self    dq 0",10
-db "original    dq 0",10
-db "fd          dd 0",10
-db "open_mode   equ 644o",10
-db "open_flags  equ 0x601",10
-db "fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0",10
-db "fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0",10
+db "    idx0        dd   5",10
+db "    fd          dd 0",10
+db "    new_self    dq 0",10
+db "",10
+db "    idx_fmt     db '    idx0        dd   ',37,'d',0,0",10
+db "    idx_search  db '    idx0        dd   ',0",10
+db "    self_fn     db __FILE__,0,0",10
+db "    src_fmt     db 'Sully_',37,'d.s',0,0",10
+db "    obj_fmt     db 'Sully_',37,'d.o',0,0",10
+db "    bin_fmt     db 'Sully_',37,'d',0,0",10
+db "    triples     db 37,'s',37,'s',37,'s',0,0",10
+db "    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0,0",10
+db "    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0,0",10
+db "    exec_fmt    db 'nasm -g -f macho64 ',37,'s'",10
+db "                db ' && cc -g -o ',37,'s ',37,'s'",10
+db "                db ' && rm ',37,'s'",10
+db "                db ' && ./',37,'s',0",10
+db "",10
+db "    idx_str     times 64 db 0",10
+db "    src_file    times 64 db 0",10
+db "    obj_file    times 64 db 0",10
+db "    bin_file    times 64 db 0",10
+db "    exec_cmd    times 256 db 0",10
+db "",10
+db "    open_mode   equ 644o",10
+db "    open_flags  equ 0x601",10
 db "self:",10,0
