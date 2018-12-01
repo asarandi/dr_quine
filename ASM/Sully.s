@@ -109,28 +109,15 @@ _prepare_strings:
     lea     rdi, [rel src_file]
     call    _sprintf
 
-    mov     edx, [rel idx0]
-    movsx   rdx, edx
-    lea     rsi, [rel obj_fmt]      ; object file name
-    lea     rdi, [rel obj_file]
-    call    _sprintf
-
-    mov     edx, [rel idx0]
-    movsx   rdx, edx
-    lea     rsi, [rel bin_fmt]      ;binary file name
-    lea     rdi, [rel bin_file]
-    call    _sprintf
-                                    ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully_X.o && ./Sully_X
-    lea     r8,  [rel obj_file]     ;arg3
-    mov     r9, r8                  ;arg4
-    lea     rcx, [rel bin_file]     ;arg2
-    sub     rsp, 8
-    push    rcx                     ;arg5
-    lea     rdx, [rel src_file]     ;arg1
+    xor     rax, rax                ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully*.o && ./Sully_X
+    mov     eax, [rel idx0]
+    mov     r9, rax                 ;arg4
+    mov     r8, rax                 ;arg3
+    mov     rcx, rax                ;arg2
+    mov     rdx, rax                ;arg1
     lea     rsi, [rel exec_fmt]
     lea     rdi, [rel exec_cmd]
     call    _sprintf                ;this will be the execution string
-    add     rsp, 16
 
     mov     rax, [rel new_self]
     pop     rbp
@@ -200,26 +187,17 @@ section .data
     fd          dd 0
     new_self    dq 0
 
-    idx_fmt     db '    idx0        dd   ',37,'d',0,0
+    idx_fmt     db '    idx0        dd   ',37,'d',0
     idx_search  db '    idx0        dd   ',0
-    self_fn     db __FILE__,0,0
-    src_fmt     db 'Sully_',37,'d.s',0,0
-    obj_fmt     db 'Sully_',37,'d.o',0,0
-    bin_fmt     db 'Sully_',37,'d',0,0
-    triples     db 37,'s',37,'s',37,'s',0,0
-    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0,0
-    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0,0
-    exec_fmt    db 'nasm -g -f macho64 ',37,'s'
-                db ' && cc -g -o ',37,'s ',37,'s'
-                db ' && rm ',37,'s'
-                db ' && ./',37,'s',0
-
+    self_fn     db __FILE__,0
+    src_fmt     db 'Sully_',37,'d.s',0
+    triples     db 37,'s',37,'s',37,'s',0
+    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0
+    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0
+    exec_fmt    db 'nasm -f macho64 Sully_',37,'d.s && cc -o Sully_',37,'d Sully_',37,'d.o && rm -f Sully*.o && ./Sully_',37,'d',0
     idx_str     times 64 db 0
     src_file    times 64 db 0
-    obj_file    times 64 db 0
-    bin_file    times 64 db 0
     exec_cmd    times 256 db 0
-
     open_mode   equ 644o
     open_flags  equ 0x601
 self:
@@ -334,28 +312,15 @@ db "    lea     rsi, [rel src_fmt]      ; source file name",10
 db "    lea     rdi, [rel src_file]",10
 db "    call    _sprintf",10
 db "",10
-db "    mov     edx, [rel idx0]",10
-db "    movsx   rdx, edx",10
-db "    lea     rsi, [rel obj_fmt]      ; object file name",10
-db "    lea     rdi, [rel obj_file]",10
-db "    call    _sprintf",10
-db "",10
-db "    mov     edx, [rel idx0]",10
-db "    movsx   rdx, edx",10
-db "    lea     rsi, [rel bin_fmt]      ;binary file name",10
-db "    lea     rdi, [rel bin_file]",10
-db "    call    _sprintf",10
-db "                                    ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully_X.o && ./Sully_X",10
-db "    lea     r8,  [rel obj_file]     ;arg3",10
-db "    mov     r9, r8                  ;arg4",10
-db "    lea     rcx, [rel bin_file]     ;arg2",10
-db "    sub     rsp, 8",10
-db "    push    rcx                     ;arg5",10
-db "    lea     rdx, [rel src_file]     ;arg1",10
+db "    xor     rax, rax                ;nasm -f macho64 Sully_X.s && cc -o Sully_X Sully_X.o && rm Sully*.o && ./Sully_X",10
+db "    mov     eax, [rel idx0]",10
+db "    mov     r9, rax                 ;arg4",10
+db "    mov     r8, rax                 ;arg3",10
+db "    mov     rcx, rax                ;arg2",10
+db "    mov     rdx, rax                ;arg1",10
 db "    lea     rsi, [rel exec_fmt]",10
 db "    lea     rdi, [rel exec_cmd]",10
 db "    call    _sprintf                ;this will be the execution string",10
-db "    add     rsp, 16",10
 db "",10
 db "    mov     rax, [rel new_self]",10
 db "    pop     rbp",10
@@ -425,26 +390,17 @@ db "    idx0        dd   5",10
 db "    fd          dd 0",10
 db "    new_self    dq 0",10
 db "",10
-db "    idx_fmt     db '    idx0        dd   ',37,'d',0,0",10
+db "    idx_fmt     db '    idx0        dd   ',37,'d',0",10
 db "    idx_search  db '    idx0        dd   ',0",10
-db "    self_fn     db __FILE__,0,0",10
-db "    src_fmt     db 'Sully_',37,'d.s',0,0",10
-db "    obj_fmt     db 'Sully_',37,'d.o',0,0",10
-db "    bin_fmt     db 'Sully_',37,'d',0,0",10
-db "    triples     db 37,'s',37,'s',37,'s',0,0",10
-db "    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0,0",10
-db "    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0,0",10
-db "    exec_fmt    db 'nasm -g -f macho64 ',37,'s'",10
-db "                db ' && cc -g -o ',37,'s ',37,'s'",10
-db "                db ' && rm ',37,'s'",10
-db "                db ' && ./',37,'s',0",10
-db "",10
+db "    self_fn     db __FILE__,0",10
+db "    src_fmt     db 'Sully_',37,'d.s',0",10
+db "    triples     db 37,'s',37,'s',37,'s',0",10
+db "    fmt1        db 100,98,32,34,37,115,34,44,49,48,10,0",10
+db "    fmt2        db 100,98,32,34,37,115,34,44,49,48,44,48,10,0",10
+db "    exec_fmt    db 'nasm -f macho64 Sully_',37,'d.s && cc -o Sully_',37,'d Sully_',37,'d.o && rm -f Sully*.o && ./Sully_',37,'d',0",10
 db "    idx_str     times 64 db 0",10
 db "    src_file    times 64 db 0",10
-db "    obj_file    times 64 db 0",10
-db "    bin_file    times 64 db 0",10
 db "    exec_cmd    times 256 db 0",10
-db "",10
 db "    open_mode   equ 644o",10
 db "    open_flags  equ 0x601",10
 db "self:",10,0
